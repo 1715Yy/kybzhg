@@ -1,6 +1,6 @@
 # kybzhg
 
-Personal-use Nezha monitoring panel deployment script, based on Argo Tunnel, compatible with both v0 and v1 versions.
+kybe
 
 ## 部署
 
