@@ -410,8 +410,8 @@ EOF
   [ -z "$NO_AUTO_RENEW" ] && [ -s $WORK_DIR/renew.sh ] && ! grep -q "$WORK_DIR/renew.sh" /etc/crontab && echo "30 3 * * * root bash $WORK_DIR/renew.sh" >> /etc/crontab
   [ -s $WORK_DIR/backup.sh ] && ! grep -q "$WORK_DIR/backup.sh" /etc/crontab && echo "$BACKUP_TIME root bash $WORK_DIR/backup.sh a" >> /etc/crontab
   [ -s $WORK_DIR/restore.sh ] && ! grep -q "$WORK_DIR/restore.sh" /etc/crontab && echo "* * * * * root bash $WORK_DIR/restore.sh a" >> /etc/crontab
-    # 每周一 4:30 重启 caddy 和 cloudflared 释放内存
-  ! grep -q "supervisorctl restart caddy argo" /etc/crontab && echo "30 4 * * 1 root supervisorctl restart caddy argo" >> /etc/crontab
+    # 每周一 7:00 重启 caddy 和 cloudflared 释放内存
+  ! grep -q "supervisorctl restart caddy argo" /etc/crontab && echo "0 7 * * 1 root supervisorctl restart caddy argo" >> /etc/crontab
   service cron restart
 
 if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
