@@ -260,11 +260,11 @@ client_secret: $LOCAL_TOKEN
 debug: false
 disable_command_execute: false
 disable_nat: false
-disable_send_query: false
+disable_send_query: true
 gpu: false
 insecure_tls: true
 ip_report_period: 1800
-report_delay: 4
+report_delay: 7
 server: $ARGO_DOMAIN:$GRPC_PROXY_PORT
 skip_connection_count: false
 skip_procs_count: true
