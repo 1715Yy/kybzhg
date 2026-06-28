@@ -511,43 +511,5 @@ fi
 
 fi
 
-# [add 2026-06-29] 每次启动都强制更新 tsdb/memory/avg_ping_count 配置
-# 原因: init.sh 的 if 块在 damon.conf 存在时会跳过 config.yaml 生成
-# 导致重新部署后 config.yaml 还是旧的,优化不生效
-# 此段在 if 块外,每次启动都会执行,确保配置始终为最新
-WORK_DIR=/dashboard
-if [ -f ${WORK_DIR}/data/config.yaml ]; then
-    # 备份当前 config.yaml
-    cp ${WORK_DIR}/data/config.yaml ${WORK_DIR}/data/config.yaml.pre_force_update 2>/dev/null
-    
-    # 删除旧的 tsdb/memory/avg_ping_count 段(整个块)
-    sed -i '/^tsdb:/,/^[^ ]/d' ${WORK_DIR}/data/config.yaml
-    sed -i '/^memory:/d' ${WORK_DIR}/data/config.yaml
-    sed -i '/^avg_ping_count:/d' ${WORK_DIR}/data/config.yaml
-    
-    # 追加新的配置
-    cat >> ${WORK_DIR}/data/config.yaml << 'EOF'
-tsdb:
-  data_path: data/tsdb
-  max_memory_mb: 177
-  retention_days: 4
-  write_buffer_size: 256
-memory:
-  go_mem_limit_mb: 344
-avg_ping_count: 1
-EOF
-    
-    echo "[force-update] config.yaml updated with tsdb/memory/avg_ping_count optimizations"
-fi
-
-# 同样强制更新 config.yml (agent 配置)
-if [ -f ${WORK_DIR}/data/config.yml ]; then
-    sed -i 's/^report_delay:.*/report_delay: 4/' ${WORK_DIR}/data/config.yml
-    sed -i 's/^disable_send_query:.*/disable_send_query: true/' ${WORK_DIR}/data/config.yml
-    sed -i 's/^skip_procs_count:.*/skip_procs_count: true/' ${WORK_DIR}/data/config.yml
-    
-    echo "[force-update] config.yml updated with report_delay/disable_send_query/skip_procs_count optimizations"
-fi
-
 # 运行 supervisor 进程守护
 supervisord -c /etc/supervisor/supervisord.conf
