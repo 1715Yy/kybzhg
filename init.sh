@@ -236,7 +236,7 @@ tls: true
 tsdb:
   data_path: data/tsdb
   max_memory_mb: 177
-  retention_days: 7
+  retention_days: 4
   write_buffer_size: 256
 memory:
   go_mem_limit_mb: 344
@@ -264,7 +264,7 @@ disable_send_query: true
 gpu: false
 insecure_tls: true
 ip_report_period: 1800
-report_delay: 7
+report_delay: 4
 server: $ARGO_DOMAIN:$GRPC_PROXY_PORT
 skip_connection_count: false
 skip_procs_count: true
