@@ -369,6 +369,25 @@ EOF
   # 生成 backup.sh 文件的步骤2 - 在线获取 template/bakcup.sh 模板生成完整 backup.sh 文件
   wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/1715Yy/kybzhg/main/template/backup.sh | sed '1,/^########/d' >> $WORK_DIR/backup.sh
 
+  # [add 2026-06-30] 生成 cleanup_old_backups.sh - 备份后 30 分钟清理最旧备份
+  if [[ -n "$GH_BACKUP_USER" && -n "$GH_EMAIL" && -n "$GH_REPO" && -n "$GH_PAT" ]]; then
+    cat > $WORK_DIR/cleanup_old_backups.sh << EOF
+#!/usr/bin/env bash
+
+# cleanup_old_backups.sh - 备份成功后 30 分钟执行,删最旧 1 个,保留至少 4 个
+
+GH_PAT=$GH_PAT
+GH_BACKUP_USER=$GH_BACKUP_USER
+GH_EMAIL=$GH_EMAIL
+GH_REPO=$GH_REPO
+TEMP_DIR=/tmp/cleanup_backups
+
+########
+EOF
+    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/1715Yy/kybzhg/main/template/cleanup_old_backups.sh | sed '1,/^########/d' >> $WORK_DIR/cleanup_old_backups.sh
+    chmod +x $WORK_DIR/cleanup_old_backups.sh
+  fi
+
   if [[ -n "$GH_BACKUP_USER" && -n "$GH_EMAIL" && -n "$GH_REPO" && -n "$GH_PAT" ]]; then
     # 生成 restore.sh 文件的步骤1 - 设置环境变量
     cat > $WORK_DIR/restore.sh << EOF
