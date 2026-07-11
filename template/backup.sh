@@ -158,33 +158,52 @@ if [[ "${DASHBOARD_UPDATE}${CLOUDFLARED_UPDATE}${IS_BACKUP}${FORCE_UPDATE}" =~ t
     sleep 10
 
     # 优化数据库，感谢 longsays 的脚本
+    # [fix 2026-06-30] 修复 $? 检查 bug + 验证新库非空再覆盖,防止空库覆盖原库
+    
     # 1. 导出数据
     sqlite3 "data/sqlite.db" <<EOF
 .output /tmp/tmp.sql
 .dump
 .quit
 EOF
-
-    # 2. 导入到新库
-    if [ $? -ne 0 ]; then
-      echo "Data export failed!"
+    EXPORT_STATUS=$?
+    
+    if [ $EXPORT_STATUS -ne 0 ] || [ ! -s /tmp/tmp.sql ]; then
+      echo "Data export failed (status=$EXPORT_STATUS, sql_size=$(stat -c%s /tmp/tmp.sql 2>/dev/null || echo 0))!"
+      echo "[safety-check] Abort database optimization, keep original sqlite.db"
     else
+      # 2. 导入到新库
+      rm -f /tmp/new.sqlite.db
       sqlite3 "/tmp/new.sqlite.db" <<EOF
 .read /tmp/tmp.sql
 .quit
 EOF
-    fi
-
-    # 3. 检查导入是否成功
-    if [ $? -ne 0 ]; then
-      echo "Data import failed!"
-    else
-      # 覆盖原库并优化
-      mv -f "/tmp/new.sqlite.db" "data/sqlite.db"
-      sqlite3 "data/sqlite.db" 'VACUUM;'
-      [ $? -eq 0 ] && echo "Database migration and optimisation complete!" || echo "Database migration and optimisation failed!"
-      # 清理临时文件
-      rm -f /tmp/tmp.sql
+      IMPORT_STATUS=$?
+      
+      if [ $IMPORT_STATUS -ne 0 ]; then
+        echo "Data import failed (status=$IMPORT_STATUS)!"
+        echo "[safety-check] Abort database optimization, keep original sqlite.db"
+        rm -f /tmp/new.sqlite.db /tmp/tmp.sql
+      else
+        # 3. 验证新库有数据 (表数 > 5 且 servers 表行数 > 0)
+        NEW_TABLE_COUNT=$(sqlite3 "/tmp/new.sqlite.db" "SELECT COUNT(*) FROM sqlite_master WHERE type='table';" 2>/dev/null || echo 0)
+        NEW_SERVER_COUNT=$(sqlite3 "/tmp/new.sqlite.db" "SELECT COUNT(*) FROM servers;" 2>/dev/null || echo 0)
+        
+        if [ "$NEW_TABLE_COUNT" -gt 5 ] && [ "$NEW_SERVER_COUNT" -gt 0 ]; then
+          # 验证通过,安全覆盖
+          mv -f "/tmp/new.sqlite.db" "data/sqlite.db"
+          sqlite3 "data/sqlite.db" 'VACUUM;'
+          echo "Database migration and optimisation complete! (tables=$NEW_TABLE_COUNT, servers=$NEW_SERVER_COUNT)"
+        else
+          # 新库为空,拒绝覆盖
+          echo "[safety-check] New database is empty (tables=$NEW_TABLE_COUNT, servers=$NEW_SERVER_COUNT), abort overwrite!"
+          echo "[safety-check] Keep original sqlite.db, removing empty new.db"
+          rm -f /tmp/new.sqlite.db
+        fi
+        
+        # 清理临时文件
+        rm -f /tmp/tmp.sql
+      fi
     fi
 
     # 克隆现有备份库
