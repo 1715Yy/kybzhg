@@ -221,11 +221,10 @@ EOF
       echo -e "↑↑↑↑↑↑↑↑↑↑ dashboard-$TIME.tar.gz list ↑↑↑↑↑↑↑↑↑↑"
       echo "[backup-size] $(du -h /tmp/$GH_REPO/dashboard-$TIME.tar.gz | awk '{print $1}') (tsdb excluded, gzip -9)"
 
-      # 更新备份 Github 库，删除 5 天前的备份
+            # 更新备份 Github 库 (清理旧备份由独立 cron 在 30 分钟后执行)
       cd /tmp/$GH_REPO
       [ -e ./.git/index.lock ] && rm -f ./.git/index.lock
       echo "dashboard-$TIME.tar.gz" > README.md
-      find ./ -name '*.gz' | sort | head -n -$DAYS | xargs rm -f
       git config --global user.name $GH_BACKUP_USER
       git config --global user.email $GH_EMAIL
       git checkout --orphan tmp_work
