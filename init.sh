@@ -412,6 +412,9 @@ EOF
   [ -s $WORK_DIR/restore.sh ] && ! grep -q "$WORK_DIR/restore.sh" /etc/crontab && echo "* * * * * root bash $WORK_DIR/restore.sh a" >> /etc/crontab
     # 每天 8:00 重启 caddy 和 cloudflared 释放内存 (备份 4:00 后 4 小时)
   ! grep -q "supervisorctl restart caddy argo" /etc/crontab && echo "0 8 * * * root supervisorctl restart caddy argo" >> /etc/crontab
+  
+  # [add 2026-06-30] 每天 4:30 清理最旧备份 (备份 4:00 后 30 分钟,保留至少 4 个)
+  ! grep -q "cleanup_old_backups.sh" /etc/crontab && [ -s $WORK_DIR/cleanup_old_backups.sh ] && echo "30 4 * * * root bash $WORK_DIR/cleanup_old_backups.sh" >> /etc/crontab
   service cron restart
 
 if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
