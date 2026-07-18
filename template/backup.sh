@@ -237,6 +237,14 @@ EOF
       if [ "$IS_UPLOAD" = 0 ]; then
         echo "dashboard-$TIME.tar.gz" > $WORK_DIR/dbfile
         info "\n Succeed to upload the backup files dashboard-$TIME.tar.gz to Github.\n"
+        # [add 2026-06-30] 备份成功后立即触发 cleanup,删最旧 1 个(保留 4+)
+        # 无论是自动备份(cron 触发)还是手动备份,都会执行 cleanup
+        if [ -x $WORK_DIR/cleanup_old_backups.sh ]; then
+          info "\n [backup] Triggering cleanup_old_backups.sh...\n"
+          bash $WORK_DIR/cleanup_old_backups.sh
+        else
+          hint "\n [backup] cleanup_old_backups.sh not found, skip cleanup.\n"
+        fi
       else
         rm -f $(awk -F '=' '/NO_ACTION_FLAG/{print $2; exit}' $WORK_DIR/restore.sh)*
         hint "\n Failed to upload the backup files dashboard-$TIME.tar.gz to Github.\n"
