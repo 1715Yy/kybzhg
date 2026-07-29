@@ -425,15 +425,18 @@ EOF
   # 生成 renew.sh 文件的步骤2 - 在线获取 template/renew.sh 模板生成完整 renew.sh 文件
   wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/1715Yy/kybzhg/main/template/renew.sh | sed '1,/^########/d' >> $WORK_DIR/renew.sh
 
-  # 生成定时任务: 1.每天北京时间 3:30:00 更新备份和还原文件，2.每天北京时间 4:00:00 备份一次，并重启 cron 服务； 3.每分钟自动检测在线备份文件里的内容
+    # 生成定时任务: 1.每天北京时间 3:30:00 更新备份和还原文件，2.每分钟自动检测在线备份文件里的内容
   [ -z "$NO_AUTO_RENEW" ] && [ -s $WORK_DIR/renew.sh ] && ! grep -q "$WORK_DIR/renew.sh" /etc/crontab && echo "30 3 * * * root bash $WORK_DIR/renew.sh" >> /etc/crontab
-  [ -s $WORK_DIR/backup.sh ] && ! grep -q "$WORK_DIR/backup.sh" /etc/crontab && echo "$BACKUP_TIME root bash $WORK_DIR/backup.sh a" >> /etc/crontab
+  # [modify 2026-07-11] 取消每晚自动备份,用户白天工作没时间加新针
+  # 如需恢复自动备份,取消下面这行注释(默认凌晨 4 点备份)
+  # [ -s $WORK_DIR/backup.sh ] && ! grep -q "$WORK_DIR/backup.sh" /etc/crontab && echo "$BACKUP_TIME root bash $WORK_DIR/backup.sh a" >> /etc/crontab
   [ -s $WORK_DIR/restore.sh ] && ! grep -q "$WORK_DIR/restore.sh" /etc/crontab && echo "* * * * * root bash $WORK_DIR/restore.sh a" >> /etc/crontab
-    # 每天 8:00 重启 caddy 和 cloudflared 释放内存 (备份 4:00 后 4 小时)
+    # 每天 8:00 重启 caddy 和 cloudflared 释放内存
   ! grep -q "supervisorctl restart caddy argo" /etc/crontab && echo "0 8 * * * root supervisorctl restart caddy argo" >> /etc/crontab
-  
-  # [add 2026-06-30] 每天 4:30 清理最旧备份 (备份 4:00 后 30 分钟,保留至少 4 个)
-  ! grep -q "cleanup_old_backups.sh" /etc/crontab && [ -s $WORK_DIR/cleanup_old_backups.sh ] && echo "30 4 * * * root bash $WORK_DIR/cleanup_old_backups.sh" >> /etc/crontab
+
+  # [modify 2026-07-11] 取消 4:30 cleanup cron (因为取消了自动备份,cleanup 由 backup.sh 内部调用即可)
+  # 如需恢复自动 cleanup,取消下面这行注释
+  # ! grep -q "cleanup_old_backups.sh" /etc/crontab && [ -s $WORK_DIR/cleanup_old_backups.sh ] && echo "30 4 * * * root bash $WORK_DIR/cleanup_old_backups.sh" >> /etc/crontab
   service cron restart
 
 if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
