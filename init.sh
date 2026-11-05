@@ -236,7 +236,7 @@ tls: true
 tsdb:
   data_path: data/tsdb
   max_memory_mb: 177
-  retention_days: 4
+  retention_days: 2
   write_buffer_size: 256
 memory:
   go_mem_limit_mb: 344
