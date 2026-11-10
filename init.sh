@@ -431,8 +431,9 @@ EOF
   # 如需恢复自动备份,取消下面这行注释(默认凌晨 4 点备份)
   # [ -s $WORK_DIR/backup.sh ] && ! grep -q "$WORK_DIR/backup.sh" /etc/crontab && echo "$BACKUP_TIME root bash $WORK_DIR/backup.sh a" >> /etc/crontab
   [ -s $WORK_DIR/restore.sh ] && ! grep -q "$WORK_DIR/restore.sh" /etc/crontab && echo "* * * * * root bash $WORK_DIR/restore.sh a" >> /etc/crontab
-    # 每天 8:00 重启 caddy 和 cloudflared 释放内存
-  ! grep -q "supervisorctl restart caddy argo" /etc/crontab && echo "0 8 * * * root supervisorctl restart caddy argo" >> /etc/crontab
+    # 每天 8:00 重启 grpcproxy (caddy) 和 cloudflared (argo) 释放内存
+    # [fix 2026-11-10] 修正 supervisor 程序名: 容器里 caddy 实际叫 grpcproxy, 之前写成 caddy 一直没生效
+  ! grep -q "supervisorctl restart grpcproxy argo" /etc/crontab && echo "0 8 * * * root supervisorctl restart grpcproxy argo" >> /etc/crontab
 
   # [modify 2026-07-11] 取消 4:30 cleanup cron (因为取消了自动备份,cleanup 由 backup.sh 内部调用即可)
   # 如需恢复自动 cleanup,取消下面这行注释

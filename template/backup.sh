@@ -156,6 +156,21 @@ if [[ "${DASHBOARD_UPDATE}${CLOUDFLARED_UPDATE}${IS_BACKUP}${FORCE_UPDATE}" =~ t
       supervisorctl stop nezha >/dev/null 2>&1
     fi
     sleep 10
+    # [fix 2026-11-10] 强制 sqlite WAL checkpoint, 确保数据落盘后再 dump
+    # 否则 nezha 停服务后, WAL 中的未合并数据会丢失, 导致备份变小/损坏
+    sqlite3 "data/sqlite.db" "PRAGMA wal_checkpoint(TRUNCATE);" 2>/dev/null
+    # [fix 2026-11-10] 备份前完整性校验, 损坏则中止备份 (不打包损坏的 db)
+    INTEGRITY=$(sqlite3 "data/sqlite.db" "PRAGMA integrity_check;" 2>/dev/null | head -1)
+    if [ "$INTEGRITY" != "ok" ]; then
+      warning "\n [safety-check] sqlite.db integrity check failed: $INTEGRITY. Abort backup. \n"
+      rm -f /tmp/tmp.sql /tmp/new.sqlite.db
+      if [ "$IS_DOCKER" = 1 ]; then
+        supervisorctl start nezha >/dev/null 2>&1
+      else
+        cmd_systemctl enable >/dev/null 2>&1
+      fi
+      exit 1
+    fi
 
     # 优化数据库，感谢 longsays 的脚本
     # [fix 2026-06-30] 修复 $? 检查 bug + 验证新库非空再覆盖,防止空库覆盖原库
@@ -170,7 +185,15 @@ EOF
     
     if [ $EXPORT_STATUS -ne 0 ] || [ ! -s /tmp/tmp.sql ]; then
       echo "Data export failed (status=$EXPORT_STATUS, sql_size=$(stat -c%s /tmp/tmp.sql 2>/dev/null || echo 0))!"
-      echo "[safety-check] Abort database optimization, keep original sqlite.db"
+      echo "[safety-check] Abort backup, keep original sqlite.db, restart nezha and exit"
+      rm -f /tmp/tmp.sql
+      # [fix 2026-11-10] dump 失败时真的退出,不再继续打包空库/残库推上 GitHub
+      if [ "$IS_DOCKER" = 1 ]; then
+        supervisorctl start nezha >/dev/null 2>&1
+      else
+        cmd_systemctl enable >/dev/null 2>&1
+      fi
+      exit 1
     else
       # 2. 导入到新库
       rm -f /tmp/new.sqlite.db
@@ -215,6 +238,19 @@ EOF
     # [modify 2026-06-23] 改用 gzip -9 极限压缩，再省 10%-15%
     # [modify 2026-06-23] 还原时 tsdb 会由 agent 重新上报自动重建，不影响监控数据展示
     if [ -d /tmp/$GH_REPO ]; then
+      # [fix 2026-11-10] 打包前再次校验 sqlite.db 大小 (>100KB 才认为是有效数据库)
+      # 防止 backup.sh 走到打包这一步时 sqlite.db 已被异常清空,导致推送几KB的损坏备份
+      DB_SIZE=$(stat -c%s "data/sqlite.db" 2>/dev/null || echo 0)
+      if [ "$DB_SIZE" -lt 102400 ]; then
+        warning "\n [safety-check] sqlite.db too small ($DB_SIZE bytes < 100KB), abort backup to avoid pushing corrupt file. \n"
+        rm -rf /tmp/$GH_REPO
+        if [ "$IS_DOCKER" = 1 ]; then
+          supervisorctl start nezha >/dev/null 2>&1
+        else
+          cmd_systemctl enable >/dev/null 2>&1
+        fi
+        exit 1
+      fi
       TIME=$(date "+%Y-%m-%d-%H:%M:%S")
       echo "↓↓↓↓↓↓↓↓↓↓ dashboard-$TIME.tar.gz list ↓↓↓↓↓↓↓↓↓↓"
       [ -d "resource" ] && find resource/ -type d -name "*custom*" | tar --exclude='data/tsdb' -cf - -T- data/ | gzip -9 > /tmp/$GH_REPO/dashboard-$TIME.tar.gz || tar --exclude='data/tsdb' -cf - data/ | gzip -9 > /tmp/$GH_REPO/dashboard-$TIME.tar.gz
